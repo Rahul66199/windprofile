@@ -1,0 +1,46 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environment and virtualenvs
+.env
+.env.*
+!.env.example
+.venv/
+venv/
+env/
+
+# Local database
+db.sqlite3
+*.sqlite3
+
+# Runtime uploads/media: keep directory placeholders only
+uploads/*
+!uploads/.gitkeep
+!uploads/kochi/
+uploads/kochi/*
+!uploads/kochi/.gitkeep
+!uploads/kolkata/
+uploads/kolkata/*
+!uploads/kolkata/.gitkeep
+!uploads/unknown/
+uploads/unknown/*
+!uploads/unknown/.gitkeep
+
+media/*
+!media/.gitkeep
+!media/geojson/
+media/geojson/*
+!media/geojson/.gitkeep
+
+# Tool caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Collected static files
+staticfiles/
+
+# Local restore snapshots
+_backups/

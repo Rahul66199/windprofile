@@ -1,0 +1,51 @@
+{
+  "stations": [
+    {
+      "station_id": "KOL01",
+      "station_name": "Kolkata",
+      "status": "Active",
+      "latitude": 22.57,
+      "longitude": 88.36,
+      "elevation": 9,
+      "wind_height": 2900,
+      "current_source": "Radar wind profiler feed",
+      "file_name": "NOT GIVEN ",
+      "raw_processed_data": "Processed Data",
+      "data_availability": "Available",
+      "last_update_time": "2026-06-16 14:25 IST",
+      "radar_frequency": "1290 MHz",
+      "beam_width": "5 Degree"
+    },
+    {
+      "station_id": "KOC01",
+      "station_name": "Kochi",
+      "latitude": 10.04,
+      "longitude": 76.33,
+      "status": "Active",
+      "elevation": 32.0,
+      "current_source": "Radar wind profiler feed",
+      "file_name": "KOC01_20260616_1432.uvw",
+      "raw_processed_data": "Processed Data",
+      "data_availability": "Available",
+      "last_update_time": "2026-06-16 14:32 IST",
+      "radar_frequency": "1290 MHz",
+      "beam_width": "5 Degree"
+    },
+    {
+      "station_id": "GUW01",
+      "station_name": "Guwahati",
+      "status": "Inactive",
+      "latitude": 26.14,
+      "longitude": 91.74,
+      "elevation": 55,
+      "wind_height": 0,
+      "current_source": "Offline",
+      "file_name": "No current file",
+      "raw_processed_data": "Not Available",
+      "data_availability": "Unavailable",
+      "last_update_time": "2026-06-13 16:20 IST",
+      "radar_frequency": "1290 MHz",
+      "beam_width": "5 Degree"
+    }
+  ]
+}

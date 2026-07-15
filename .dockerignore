@@ -1,0 +1,12 @@
+.git
+.env
+.venv
+__pycache__
+*.py[cod]
+*.sqlite3
+_backups
+media/*
+!media/.gitkeep
+uploads/*
+!uploads/.gitkeep
+staticfiles

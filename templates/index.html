@@ -1,0 +1,434 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Indian Meteorological Radar Wind Profiler System</title>
+
+  <script>
+    (() => {
+      try {
+        const savedTheme = localStorage.getItem("windprofiler:theme");
+        document.documentElement.dataset.theme = savedTheme === "dark" ? "dark" : "light";
+      } catch (error) {
+        document.documentElement.dataset.theme = "light";
+      }
+    })();
+  </script>
+  <link rel="icon" type="image/webp" href="{% static 'imd-logo.webp' %}">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <link rel="stylesheet" href="{% static 'css/style.css' %}?v=20260713-user-shapefile-1">
+  <link rel="stylesheet" href="{% static 'css/map-layers.css' %}">
+</head>
+
+<body data-initial-view="{{ initial_view|default:'dashboard' }}">
+  <header class="dashboard-header">
+    <div class="system-title">
+      <div class="title-brand">
+        <img class="govt-logo" src="{% static 'imd-logo.webp' %}" alt="India Meteorological Department logo">
+        <div>
+          <span class="system-kicker"></span>
+          <h1>Indian Meteorological Radar Wind Profiler System</h1>
+        </div>
+      </div>
+    </div>
+
+    <div class="header-stats-wrap">
+      <section class="stats-panel" aria-label="Station statistics">
+        <article class="stat-card total">
+          <span>Total Stations</span>
+          <strong id="totalStations">0</strong>
+        </article>
+        <article class="stat-card active">
+          <span>Active Stations</span>
+          <strong id="activeStations">0</strong>
+          <div class="station-name-list" id="activeStationNames"></div>
+        </article>
+        <article class="stat-card inactive">
+          <span>Inactive Stations</span>
+          <strong id="inactiveStations">0</strong>
+          <div class="station-name-list" id="inactiveStationNames"></div>
+        </article>
+        <article class="stat-card theme-card">
+          <span>Theme</span>
+          <button type="button" id="themeToggleButton" class="theme-toggle" title="Switch theme"
+            aria-label="Switch theme" aria-pressed="true">
+            <span class="theme-toggle-symbol theme-toggle-sun" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="12" cy="12" r="4" fill="currentColor" />
+                <g stroke="currentColor" stroke-width="1.7" stroke-linecap="round">
+                  <path d="M12 2.5v2.2" />
+                  <path d="M12 19.3v2.2" />
+                  <path d="M4.58 4.58l1.56 1.56" />
+                  <path d="M17.86 17.86l1.56 1.56" />
+                  <path d="M2.5 12h2.2" />
+                  <path d="M19.3 12h2.2" />
+                  <path d="M4.58 19.42l1.56-1.56" />
+                  <path d="M17.86 6.14l1.56-1.56" />
+                </g>
+              </svg>
+            </span>
+            <span class="theme-toggle-symbol theme-toggle-moon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M20.6 14.2A7.7 7.7 0 019.8 3.4 8.8 8.8 0 1020.6 14.2z" fill="currentColor" />
+              </svg>
+            </span>
+            <span class="theme-toggle-thumb" aria-hidden="true"></span>
+          </button>
+        </article>
+      </section>
+    </div>
+  </header>
+
+  <main id="dashboardView" class="dashboard-shell">
+    <aside class="control-panel">
+      <section class="panel-section">
+        <h2>Stations</h2>
+        <input id="stationSearch" list="stationOptions" placeholder="Search station" aria-label="Search station">
+        <datalist id="stationOptions"></datalist>
+        <div class="button-row">
+          <button id="zoomSelectedButton" type="button">Zoom Selected</button>
+          <button id="fitAllButton" type="button">Fit All</button>
+        </div>
+      </section>
+
+      <section class="panel-section">
+        <h2>Time Slice / Time Period</h2>
+        <label>Date <input id="datePicker" type="date"></label>
+        <label class="checkbox-item compare-toggle">
+          <input id="compareModeToggle" type="checkbox">
+          <span>Compare</span>
+        </label>
+        <div id="compareAxisFields" class="compare-axis-fields hidden">
+          <label class="checkbox-item">
+            <input type="radio" name="compareAxis" value="datewise" checked>
+            <span>Date-wise</span>
+          </label>
+          <label class="checkbox-item">
+            <input type="radio" name="compareAxis" value="stationwise">
+            <span>Station-wise</span>
+          </label>
+        </div>
+        <div id="compareDateFields" class="compare-date-fields hidden">
+          <label>From <input id="compareStartDate" type="date"></label>
+          <label>To (auto: 5 days after From) <input id="compareEndDate" type="date"></label>
+        </div>
+        <div id="compareStationFields" class="compare-station-fields hidden">
+          <div id="compareStationList" class="compare-station-list"></div>
+        </div>
+      </section>
+
+      <section class="panel-section">
+        <h2>Products</h2>
+        <div id="productList" class="checkbox-list"></div>
+        <button id="productSubmitButton" type="button" class="product-submit-button">Submit</button>
+      </section>
+
+      <section class="panel-section temporary-shapefile-section">
+        <h2>User Shapefile</h2>
+        <form id="userShapefileForm" class="temporary-shapefile-form" enctype="multipart/form-data">
+          {% csrf_token %}
+          <label>Upload Shapefile
+            <input
+              id="userShapefileInput"
+              name="shapefile_zip"
+              type="file"
+              accept=".zip,.shp,.shx,.dbf,.prj,.cpg,.qix,.sbn,.sbx,.xml"
+              multiple
+              required
+            >
+          </label>
+          <div class="temporary-shapefile-actions">
+            <button type="submit">Upload</button>
+            <button id="userShapefileRemoveButton" type="button" class="hidden">Remove</button>
+          </div>
+          <p id="userShapefileMessage" class="form-message temporary-shapefile-status"></p>
+        </form>
+      </section>
+    </aside>
+
+    <section class="workspace" id="workspaceContainer">
+      <section class="attribute-panel">
+        <div class="section-heading">
+          <h2 id="attributePanelTitle">Station Availability &amp; Attribute Data</h2>
+          <span id="selectedStationBadge">No station selected</span>
+        </div>
+
+        <div id="availabilityView" class="panel-view hidden">
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Attribute</th>
+                  <th>Value</th>
+                </tr>
+              </thead>
+              <tbody id="attributeTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div id="uvwView" class="panel-view hidden">
+          <article class="uvw-product-card">
+            <div class="uvw-card-head">
+              <div>
+                <p class="uvw-kicker">Wind Profiler Product</p>
+                <h3 id="uvwCardTitle">Derived UVW Profiles</h3>
+                <p class="uvw-meta" id="uvwCardMeta">Select a station and enable Derived UVW.</p>
+              </div>
+              <span class="uvw-badge" id="uvwCycleBadge">--</span>
+            </div>
+            <div class="uvw-image-grid" id="uvwImageGrid">
+              <div class="uvw-image-card">
+                <canvas id="uvwChartSpeed" aria-label="Wind speed profile"></canvas>
+                <span id="uvwChartSpeedLabel">Wind Speed</span>
+              </div>
+              <div class="uvw-image-card">
+                <canvas id="uvwChartDirection" aria-label="Wind direction profile"></canvas>
+                <span id="uvwChartDirectionLabel">Wind Direction</span>
+              </div>
+              <div class="uvw-image-card">
+                <canvas id="uvwChartShear" aria-label="Wind shear profile"></canvas>
+                <span id="uvwChartShearLabel">Wind Shear</span>
+              </div>
+            </div>
+            <p class="uvw-empty" id="uvwEmptyMessage"></p>
+          </article>
+        </div>
+
+        <div id="windBarbView" class="panel-view hidden">
+          <article class="uvw-product-card wind-barb-card">
+            <div class="uvw-card-head">
+              <div>
+                <p class="uvw-kicker">Wind Profiler Product</p>
+                <h3 id="windBarbCardTitle">Wind Barb</h3>
+                <p class="uvw-meta" id="windBarbCardMeta">Select a station and enable Wind Barb.</p>
+              </div>
+              <span class="uvw-badge" id="windBarbCycleBadge">--</span>
+            </div>
+            <div class="wind-barb-image-wrap" id="windBarbImageWrap">
+              <canvas id="windBarbChart" aria-label="Wind barb profile chart"></canvas>
+            </div>
+            <p class="uvw-empty" id="windBarbEmptyMessage"></p>
+          </article>
+        </div>
+      </section>
+      <div id="productDetailedView" class="panel-view hidden">
+        <article class="uvw-product-card">
+          <div class="uvw-card-head">
+            <div>
+              <p class="uvw-kicker">Radar Product</p>
+              <h3>Current Data Information</h3>
+            </div>
+          </div>
+
+          <dl class="product-detail-list">
+            <dt>Current Source</dt>
+            <dd id="detailSource">Radar wind profiler feed</dd>
+
+            <dt>File Name</dt>
+            <dd id="detailFileName">NOT GIVEN</dd>
+
+            <dt>Raw / Processed Data</dt>
+            <dd id="detailDataType">Processed Data</dd>
+
+            <dt>Height of Wind</dt>
+            <dd id="detailHeight">2900</dd>
+
+            <dt>Latitude</dt>
+            <dd id="detailLatitude">22.57</dd>
+
+            <dt>Longitude</dt>
+            <dd id="detailLongitude">88.36</dd>
+          </dl>
+        </article>
+      </div>
+
+      <section id="comparisonView" class="comparison-section hidden">
+        <div class="section-heading">
+          <h2 id="comparisonTitle">Product Comparison</h2>
+          <span id="comparisonBadge">--</span>
+        </div>
+        <div id="comparisonGrid" class="comparison-grid"></div>
+        <p id="comparisonMessage" class="uvw-empty"></p>
+      </section>
+
+      <section class="map-section">
+        <div class="map-toolbar">
+          <h2>GIS Map</h2>
+          <div class="map-toolbar-actions">
+            <div class="coordinate-display" id="coordinateDisplay">Lat: --, Lon: --</div>
+          </div>
+        </div>
+        <div id="map"></div>
+      </section>
+    </section>
+  </main>
+
+  <main id="adminView" class="admin-shell view-hidden" hidden>
+    <div class="admin-toolbar">
+      <button id="backToDashboardButton" type="button">Back to Dashboard</button>
+      <button id="logoutButton" type="button" class="hidden">Logout</button>
+    </div>
+
+    <section id="loginPanel" class="admin-card login-card">
+      <h2>Admin Login</h2>
+      <form id="loginForm">
+        <label>Username <input id="usernameInput" name="username" autocomplete="username" required></label>
+        <label>Password <input id="passwordInput" type="password" autocomplete="current-password" required></label>
+        <button type="submit">Login</button>
+      </form>
+      <p id="loginMessage" class="form-message"></p>
+    </section>
+
+    <section id="adminPanel" class="admin-grid hidden">
+      <article class="admin-card">
+        <div class="section-heading">
+          <h2>Stations</h2>
+          <button id="newStationButton" type="button">New Station</button>
+        </div>
+        <div id="stationAdminList" class="admin-list"></div>
+      </article>
+
+      <article class="admin-card">
+        <h2 id="stationFormTitle">Add New Station</h2>
+        <form id="stationForm">
+          <input id="stationIdInput" type="hidden">
+          <div class="form-grid">
+            <label>Station Name <input name="station_name" required></label>
+            <label>Latitude <input name="latitude" type="number" step="any" required></label>
+            <label>Longitude <input name="longitude" type="number" step="any" required></label>
+            <label>Status
+              <select name="status">
+                <option>Active</option>
+                <option>Inactive</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="section-heading small-heading">
+            <h3>Dynamic Attributes</h3>
+            <button id="addAttributeButton" type="button">Add Attribute</button>
+          </div>
+          <div id="attributeEditor"></div>
+
+          <div class="button-row">
+            <button type="submit">Save Station</button>
+            <button id="deleteStationButton" type="button" class="danger hidden">Delete Station</button>
+          </div>
+        </form>
+        <p id="stationFormMessage" class="form-message"></p>
+      </article>
+
+      <article class="admin-card">
+        <h2>Products</h2>
+        <form id="productForm" class="inline-form">
+          <input id="productNameInput" placeholder="Product Name" required>
+          <button type="submit">Add Product</button>
+        </form>
+        <div id="productAdminList" class="admin-list compact-list"></div>
+        <div class="section-divider"></div>
+        <h2>Upload Radar Data</h2>
+        <form id="radarUploadForm"
+              method="POST"
+              action="{% url 'upload_uvw' %}"
+              enctype="multipart/form-data">
+
+            {% csrf_token %}
+
+            <label for="fileType">File Type</label>
+            <select id="fileType" name="file_type">
+                <option value="uvw">UVW Data</option>
+                <option value="metadata">Metadata</option>
+            </select>
+
+            <br><br>
+             <label for="radarFile">Choose Files</label>
+             <input type="file"
+               id="radarFile"
+               name="radar_file"
+               required
+               multiple>
+
+            <br><br>
+
+            <button type="submit">
+                Upload
+            </button>
+            <p id="uploadMessage" class="form-message"></p>
+
+        </form>
+        <div class="section-divider"></div>
+        <div class="section-heading">
+          <h2>Map Layers</h2>
+          <span id="mapLayerStatus">No layers loaded</span>
+        </div>
+        <form id="mapLayerUploadForm" class="map-layer-upload-form" enctype="multipart/form-data">
+          {% csrf_token %}
+          <label>Layer Name <input id="mapLayerNameInput" name="layer_name" placeholder="Administrative boundary" required></label>
+          <label>Shapefile Components (.shp, .shx, .dbf, .prj - Upload All Together)
+            <input id="mapLayerZipInput" name="shapefile_zip" type="file" accept=".zip,.shp,.shx,.dbf,.prj,.cpg,.qix,.sbn,.sbx,.xml" multiple required>
+            <small style="display: block; margin-top: 4px; color: var(--muted); font-size: 12px;">Upload a ZIP file OR select all shapefile component files (.shp, .shx, .dbf, .prj) together using Ctrl+Click (Windows) or Cmd+Click (Mac)</small>
+          </label>
+          <label class="checkbox-item map-layer-visibility">
+            <input id="mapLayerVisibleInput" name="is_visible" type="checkbox" checked>
+            <span>Visible on map</span>
+          </label>
+          <div class="map-layer-style-grid">
+            <label>Fill <input name="fill_color" type="color" value="#2f80ed"></label>
+            <label>Border <input name="border_color" type="color" value="#0f3d66"></label>
+            <label>Marker <input name="marker_color" type="color" value="#e11d48"></label>
+            <label>Opacity <input name="fill_opacity" type="number" min="0" max="1" step="0.05" value="0.35"></label>
+            <label>Line Width <input name="line_width" type="number" min="0" max="20" step="0.5" value="2"></label>
+            <label>Marker Icon <input name="marker_icon" placeholder="circle"></label>
+          </div>
+          <button type="submit">Upload Layer</button>
+          <progress id="mapLayerUploadProgress" class="hidden" max="100" value="0"></progress>
+          <p id="mapLayerMessage" class="form-message"></p>
+        </form>
+
+        <div class="map-layer-tools">
+          <input id="mapLayerSearch" placeholder="Search layers">
+          <button id="refreshMapLayersButton" type="button">Refresh</button>
+        </div>
+        <div id="mapLayerAdminList" class="admin-list map-layer-list"></div>
+
+        <form id="mapLayerStyleForm" class="map-layer-style-panel hidden">
+          <input id="editingMapLayerId" type="hidden">
+          <div class="section-heading small-heading">
+            <h3 id="mapLayerStyleTitle">Edit Layer Style</h3>
+            <button id="cancelMapLayerStyleButton" type="button">Close</button>
+          </div>
+          <label>Layer Name <input name="layer_name" required></label>
+          <label class="checkbox-item map-layer-visibility">
+            <input name="is_visible" type="checkbox">
+            <span>Visible on map</span>
+          </label>
+          <div class="map-layer-style-grid">
+            <label>Fill <input name="fill_color" type="color"></label>
+            <label>Border <input name="border_color" type="color"></label>
+            <label>Marker <input name="marker_color" type="color"></label>
+            <label>Opacity <input name="fill_opacity" type="number" min="0" max="1" step="0.05"></label>
+            <label>Line Width <input name="line_width" type="number" min="0" max="20" step="0.5"></label>
+            <label>Marker Icon <input name="marker_icon" placeholder="circle"></label>
+          </div>
+          <div class="button-row">
+            <button type="submit">Save Style</button>
+            <button id="deleteMapLayerFromEditorButton" type="button" class="danger">Delete Layer</button>
+          </div>
+        </form>
+      </article>
+    </section>
+  </main>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/esri-leaflet@3.0.15/dist/esri-leaflet.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+  <script src="{% static 'js/admin.js' %}?v=20260715-map-layer-focus-1"></script>
+  <script src="{% static 'js/script.js' %}?v=20260715-shapefile-visible-1"></script>
+</body>
+
+</html>

@@ -1,0 +1,14 @@
+{
+  "products": [
+    "Availability",
+    "UVW",
+    "Derived UVW",
+    "Wind Barb"
+  ],
+  "types": {
+    "Availability": "availability",
+    "UVW": "uvw",
+    "Derived UVW": "derived_uvw",
+    "Wind Barb": "wind_barb"
+  }
+}
