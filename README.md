@@ -1,6 +1,6 @@
 # Wind Profiler Dashboard
 
-Django dashboard for Indian Meteorological Radar Wind Profiler station data,
+ dashboard for Indian Meteorological Radar Wind Profiler station data,
 UVW profiles, wind-barb charts, product comparisons, station administration,
 radar uploads, and GeoJSON/shapefile map layers.
 
